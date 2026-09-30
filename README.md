@@ -15,21 +15,22 @@ and entities update within seconds instead of on the next poll.
 
 - **ha-zabbix** receives the alerts: a webhook that triggers an immediate refresh
   from the Zabbix API (**Configure → Alerts**).
-- **This integration** configures Zabbix to call that webhook. It creates four
+- **This integration** configures Zabbix to call that webhook. It creates five
   objects:
 
 | Zabbix object | Name | Purpose |
 |---|---|---|
 | Media type (webhook) | *Home Assistant (ha-zabbix-alerts)* | Sends the alert to Home Assistant with the shared secret |
+| User role | *Home Assistant alerts (ha-zabbix-alerts)* | Type *User* with **no** frontend, API or action access |
 | User group | *Home Assistant alerts* | **Read** permission on every host group: Zabbix only alerts users who can see the host. No frontend access |
-| User | `ha-zabbix-alerts` | The recipient, with the webhook URL as its media. No frontend or API access |
+| User | `ha-zabbix-alerts` | The recipient, with that role and the webhook URL as its media |
 | Trigger action | *Home Assistant alerts (ha-zabbix-alerts)* | Notifies the user on problem, recovery and update, for every trigger, including suppressed problems and symptoms |
 
 It checks them at startup and every hour and fixes any drift: the webhook script
 after an update, the URL or secret, and read permission on host groups added
 since. **It only ever touches objects it created.** If one of these names is
 already taken by an object it didn't create, it stops with a repair issue instead
-of taking it over. **Removing the integration deletes the four objects again.**
+of taking it over. **Removing the integration deletes the five objects again.**
 
 ## Requirements
 
@@ -65,8 +66,9 @@ objects yourself:
 2. Import [`zabbix/media_type_home_assistant.yaml`](zabbix/media_type_home_assistant.yaml)
    under **Alerts → Media types → Import**. Open the media type and set the `Secret`
    parameter to the secret.
-3. Create a user group with **Read** permission on the host groups you want alerts
-   for (frontend access disabled), and a user in it. Give the user a media of type
+3. Create a user role of type *User* with frontend, API and action access turned
+   off, a user group with **Read** permission on the host groups you want alerts
+   for (frontend access disabled), and a user with that role in that group. Give the user a media of type
    *Home Assistant* with **Send to** = the URL.
 4. Create a **trigger action** (Alerts → Actions → Trigger actions) that sends a
    message to that user via *Home Assistant* in **Operations**, **Recovery
@@ -90,7 +92,7 @@ objects yourself:
 ## Removal
 
 **Settings → Devices & services → Zabbix alerts → ⋮ → Delete.** This deletes the
-media type, user, user group and action from Zabbix. If Zabbix can't be reached
+media type, user role, user group, user and action from Zabbix. If Zabbix can't be reached
 at that moment, the log lists their ids so you can delete them by hand. Then
 remove the repository from HACS and, if you like, turn off **Alerts** in ha-zabbix.
 

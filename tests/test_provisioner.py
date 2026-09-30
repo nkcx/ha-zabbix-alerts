@@ -36,7 +36,7 @@ async def provisioner(fake_zabbix: FakeZabbix) -> AsyncGenerator[Provisioner]:
 async def _create(provisioner: Provisioner) -> OwnedObjects:
     owned = OwnedObjects()
     result = await provisioner.reconcile(owned, URL, SECRET)
-    assert result.created == ["media type", "user group", "user", "action"]
+    assert result.created == ["media type", "user role", "user group", "user", "action"]
     return owned
 
 
@@ -62,7 +62,11 @@ async def test_creates_everything(
 
     user = fake_zabbix.store("user")[owned.user_id]
     assert user["username"] == USERNAME
-    assert user["roleid"] == "1"
+    assert user["roleid"] == owned.role_id
+    role = fake_zabbix.store("role")[owned.role_id]
+    assert role["type"] == "1"
+    assert role["rules"]["api.access"] == "0"
+    assert role["rules"]["ui.default_access"] == "0"
     assert user["usrgrps"] == [{"usrgrpid": owned.user_group_id}]
     assert user["medias"][0]["sendto"] == URL
     assert user["medias"][0]["mediatypeid"] == owned.media_type_id
@@ -94,10 +98,12 @@ async def test_reconcile_repairs_drift(
     # Someone edits the media type and action; a host group is added.
     fake_zabbix.store("mediatype")[owned.media_type_id]["script"] = "return 1;"
     fake_zabbix.store("action")[owned.action_id]["pause_suppressed"] = "1"
+    fake_zabbix.store("role")[owned.role_id]["rules"]["api.access"] = "1"
     fake_zabbix.host_groups.append("20")
     # The Home Assistant URL and secret change.
     result = await provisioner.reconcile(owned, URL + "2", "d" * 64)
-    assert result.updated == ["media type", "user group", "user", "action"]
+    assert result.updated == ["media type", "user role", "user group", "user", "action"]
+    assert fake_zabbix.store("role")[owned.role_id]["rules"]["api.access"] == "0"
     media_type = fake_zabbix.store("mediatype")[owned.media_type_id]
     assert media_type["script"] == MEDIA_TYPE_SCRIPT
     assert {p["name"]: p["value"] for p in media_type["parameters"]}[
@@ -147,14 +153,14 @@ async def test_api_errors(provisioner: Provisioner, fake_zabbix: FakeZabbix) -> 
         await provisioner.reconcile(OwnedObjects(), URL, SECRET)
 
 
-async def test_role_fallback(provisioner: Provisioner, fake_zabbix: FakeZabbix) -> None:
-    fake_zabbix.roles = [{"roleid": "7", "name": "Custom users", "type": "1"}]
+async def test_user_role_is_repaired(
+    provisioner: Provisioner, fake_zabbix: FakeZabbix
+) -> None:
     owned = await _create(provisioner)
-    assert fake_zabbix.store("user")[owned.user_id]["roleid"] == "7"
-    await provisioner.remove(owned)
-    fake_zabbix.roles = []
-    with pytest.raises(ProvisionError, match="role"):
-        await provisioner.reconcile(OwnedObjects(), URL, SECRET)
+    fake_zabbix.store("user")[owned.user_id]["roleid"] = "1"
+    result = await provisioner.reconcile(owned, URL, SECRET)
+    assert result.updated == ["user"]
+    assert fake_zabbix.store("user")[owned.user_id]["roleid"] == owned.role_id
 
 
 async def test_remove(provisioner: Provisioner, fake_zabbix: FakeZabbix) -> None:
@@ -163,15 +169,16 @@ async def test_remove(provisioner: Provisioner, fake_zabbix: FakeZabbix) -> None
     fake_zabbix.store("mediatype")["5"] = unrelated
     del fake_zabbix.store("user")[owned.user_id]  # deleted by someone already
     removed = await provisioner.remove(owned)
-    assert removed == ["action", "user group", "media type"]
+    assert removed == ["action", "user group", "user role", "media type"]
     assert list(fake_zabbix.store("mediatype").values()) == [unrelated]
     assert fake_zabbix.store("usergroup") == {}
+    assert fake_zabbix.store("role") == {}
     assert fake_zabbix.store("action") == {}
     assert await provisioner.remove(OwnedObjects()) == []
 
 
 def test_owned_objects_round_trip() -> None:
-    owned = OwnedObjects("1", "2", "3", "4")
+    owned = OwnedObjects("1", "2", "3", "4", "5")
     assert OwnedObjects.from_dict(owned.as_dict()) == owned
     assert OwnedObjects.from_dict({}) == OwnedObjects()
 

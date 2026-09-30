@@ -15,6 +15,7 @@ OBJECTS = {
     "mediatype": ("mediatypes", "mediatypeid", "mediatypeids"),
     "usergroup": ("usergroups", "usrgrpid", "usrgrpids"),
     "user": ("users", "userid", "userids"),
+    "role": ("roles", "roleid", "roleids"),
     "action": ("actions", "actionid", "actionids"),
 }
 COMMON_GET_PARAMS = {"output", "filter"}
@@ -23,6 +24,7 @@ ALLOWED_GET_PARAMS = {
     "mediatype": COMMON_GET_PARAMS | {"mediatypeids", "selectMessageTemplates"},
     "usergroup": COMMON_GET_PARAMS | {"usrgrpids", "selectHostGroupRights"},
     "user": COMMON_GET_PARAMS | {"userids", "selectUsrgrps", "selectMedias"},
+    "role": COMMON_GET_PARAMS | {"roleids", "selectRules"},
     "action": COMMON_GET_PARAMS
     | {
         "actionids",
@@ -37,6 +39,7 @@ NAME_FIELD = {
     "usergroup": "name",
     "user": "username",
     "action": "name",
+    "role": "name",
 }
 
 
@@ -60,12 +63,6 @@ class FakeZabbix:
         default_factory=lambda: {store: {} for store, _, _ in OBJECTS.values()}
     )
     host_groups: list[str] = field(default_factory=lambda: ["2", "4", "7"])
-    roles: list[JsonObject] = field(
-        default_factory=lambda: [
-            {"roleid": "1", "name": "User role", "type": "1"},
-            {"roleid": "3", "name": "Super admin role", "type": "3"},
-        ]
-    )
     calls: list[tuple[str, Any]] = field(default_factory=list)
     failures: dict[str, ApiFailure] = field(default_factory=dict)
     http_status: int | None = None
@@ -117,9 +114,6 @@ class FakeZabbix:
             raise ApiFailure(-32602, "Invalid params.", "Not authorized.")
         if method == "hostgroup.get":
             return [{"groupid": group_id} for group_id in self.host_groups]
-        if method == "role.get":
-            wanted = str(params.get("filter", {}).get("type", ""))
-            return [role for role in self.roles if not wanted or role["type"] == wanted]
         kind, action = method.split(".")
         store_name, id_field, ids_param = OBJECTS[kind]
         store = self.stores[store_name]
@@ -168,6 +162,10 @@ def _normalize(kind: str, data: JsonObject) -> JsonObject:
         else value
         for key, value in data.items()
     }
+    if kind == "role":
+        data["rules"] = {
+            key: str(value) for key, value in data.get("rules", {}).items()
+        }
     if kind == "usergroup":
         data["hostgroup_rights"] = [
             {"id": str(right["id"]), "permission": str(right["permission"])}

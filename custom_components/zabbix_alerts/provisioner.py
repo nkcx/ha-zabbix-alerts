@@ -1,14 +1,15 @@
 """Create and maintain the Zabbix objects that send alerts to Home Assistant.
 
-Four objects, all owned by this integration (their ids are stored in the config
+Five objects, all owned by this integration (their ids are stored in the config
 entry; nothing else in Zabbix is ever modified or deleted):
 
 1. a webhook **media type** that POSTs to Home Assistant's alert webhook with the
    shared secret in a header;
-2. a **user group** with read permission on every host group, because Zabbix
+2. a **user role** without frontend, API or action access;
+3. a **user group** with read permission on every host group, because Zabbix
    only sends alerts to users who may see the host;
-3. a **user** in that group whose media is the webhook URL;
-4. a **trigger action** that notifies that user on problem, recovery and update.
+4. a **user** with that role, in that group, whose media is the webhook URL;
+5. a **trigger action** that notifies that user on problem, recovery and update.
 
 ``reconcile`` compares what exists with what should exist and creates or updates
 only what differs. ``remove`` deletes exactly the objects it created.
@@ -25,6 +26,7 @@ from custom_components.zabbix.api import ZabbixApiError, ZabbixAuthError, Zabbix
 _LOGGER = logging.getLogger(__name__)
 
 MEDIA_TYPE_NAME = "Home Assistant (ha-zabbix-alerts)"
+ROLE_NAME = "Home Assistant alerts (ha-zabbix-alerts)"
 USER_GROUP_NAME = "Home Assistant alerts"
 USERNAME = "ha-zabbix-alerts"
 ACTION_NAME = "Home Assistant alerts (ha-zabbix-alerts)"
@@ -67,6 +69,13 @@ PERMISSION_READ = 2
 GUI_ACCESS_DISABLED = 3
 OPERATION_SEND_MESSAGE = 0
 USER_TYPE_USER = 1
+# The alert user only receives notifications: no frontend, API or actions.
+ROLE_RULES = {
+    "ui.default_access": "0",
+    "modules.default_access": "0",
+    "api.access": "0",
+    "actions.default_access": "0",
+}
 
 
 def media_type_parameters(secret: str) -> list[dict[str, str]]:
@@ -113,6 +122,7 @@ class OwnedObjects:
     """Ids of the objects this integration created."""
 
     media_type_id: str | None = None
+    role_id: str | None = None
     user_group_id: str | None = None
     user_id: str | None = None
     action_id: str | None = None
@@ -122,6 +132,7 @@ class OwnedObjects:
         """Create from stored config entry data."""
         return cls(
             media_type_id=data.get("media_type_id"),
+            role_id=data.get("role_id"),
             user_group_id=data.get("user_group_id"),
             user_id=data.get("user_id"),
             action_id=data.get("action_id"),
@@ -131,6 +142,7 @@ class OwnedObjects:
         """Return data to store in the config entry."""
         return {
             "media_type_id": self.media_type_id,
+            "role_id": self.role_id,
             "user_group_id": self.user_group_id,
             "user_id": self.user_id,
             "action_id": self.action_id,
@@ -177,6 +189,7 @@ class Provisioner:
         result = ReconcileResult(owned=owned)
         try:
             await self._reconcile_media_type(result, secret)
+            await self._reconcile_role(result)
             await self._reconcile_user_group(result)
             await self._reconcile_user(result, url)
             await self._reconcile_action(result)
@@ -276,15 +289,34 @@ class Provisioner:
             )
             result.updated.append("user group")
 
-    async def _user_role_id(self) -> str:
-        roles = await self.client.call(
+    async def _reconcile_role(self, result: ReconcileResult) -> None:
+        owned = result.owned
+        desired: dict[str, Any] = {
+            "name": ROLE_NAME,
+            "type": USER_TYPE_USER,
+            "rules": dict(ROLE_RULES),
+        }
+        current = await self._get(
             "role.get",
-            {"output": ["roleid", "name"], "filter": {"type": USER_TYPE_USER}},
+            "roleids",
+            owned.role_id,
+            output=["name", "type"],
+            selectRules="extend",
         )
-        if not roles:
-            raise ProvisionError("Zabbix has no role of the User type")
-        by_name = {role["name"]: str(role["roleid"]) for role in roles}
-        return by_name.get("User role") or min(by_name.values(), key=int)
+        if current is None:
+            await self._check_name_free("role.get", "name", ROLE_NAME, "user role")
+            created = await self.client.call("role.create", desired)
+            owned.role_id = str(created["roleids"][0])
+            result.created.append("user role")
+            return
+        rules = current.get("rules") or {}
+        if (
+            current["name"] != ROLE_NAME
+            or str(current["type"]) != str(USER_TYPE_USER)
+            or any(str(rules.get(key)) != value for key, value in ROLE_RULES.items())
+        ):
+            await self.client.call("role.update", {"roleid": owned.role_id, **desired})
+            result.updated.append("user role")
 
     async def _reconcile_user(self, result: ReconcileResult, url: str) -> None:
         owned = result.owned
@@ -299,7 +331,7 @@ class Provisioner:
             "user.get",
             "userids",
             owned.user_id,
-            output=["username", "surname"],
+            output=["username", "surname", "roleid"],
             selectUsrgrps=["usrgrpid"],
             selectMedias=["mediatypeid", "sendto", "active", "severity", "period"],
         )
@@ -313,7 +345,7 @@ class Provisioner:
                     "surname": "alerts (ha-zabbix-alerts)",
                     # Never used: the user has no frontend or API access.
                     "passwd": secrets.token_urlsafe(32) + "aA1!",
-                    "roleid": await self._user_role_id(),
+                    "roleid": owned.role_id,
                     "usrgrps": [{"usrgrpid": owned.user_group_id}],
                     "medias": [media],
                 },
@@ -333,11 +365,16 @@ class Provisioner:
         ]
         desired_media = [{key: str(value) for key, value in media.items()}]
         groups = [str(group["usrgrpid"]) for group in current.get("usrgrps") or ()]
-        if current_media != desired_media or groups != [owned.user_group_id]:
+        if (
+            current_media != desired_media
+            or groups != [owned.user_group_id]
+            or str(current.get("roleid")) != owned.role_id
+        ):
             await self.client.call(
                 "user.update",
                 {
                     "userid": owned.user_id,
+                    "roleid": owned.role_id,
                     "usrgrps": [{"usrgrpid": owned.user_group_id}],
                     "medias": [media],
                 },
@@ -407,6 +444,7 @@ class Provisioner:
                 "usrgrpids",
                 owned.user_group_id,
             ),
+            ("user role", "role.delete", "role.get", "roleids", owned.role_id),
             (
                 "media type",
                 "mediatype.delete",

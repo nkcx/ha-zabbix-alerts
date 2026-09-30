@@ -51,7 +51,7 @@ async def test_remove_deletes_objects(
     await hass.async_block_till_done()
     assert all(
         not fake_zabbix.store(kind)
-        for kind in ("mediatype", "usergroup", "user", "action")
+        for kind in ("mediatype", "role", "usergroup", "user", "action")
     )
 
 
@@ -200,7 +200,13 @@ async def test_diagnostics(
     diagnostics = await async_get_config_entry_diagnostics(hass, init_integration)
     assert diagnostics["entry"]["api_token"] == "**REDACTED**"
     assert diagnostics["entry"]["alert_url"] == "**REDACTED**"
-    assert diagnostics["created"] == ["media type", "user group", "user", "action"]
+    assert diagnostics["created"] == [
+        "media type",
+        "user role",
+        "user group",
+        "user",
+        "action",
+    ]
     assert diagnostics["last_error"] is None
     assert diagnostics["last_run"] is not None
 

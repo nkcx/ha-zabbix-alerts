@@ -90,7 +90,13 @@ async def test_alerts_end_to_end(client: ZabbixClient) -> None:
     try:
         webhook_url = f"http://{HA_HOST}:18123/api/webhook/contract"
         result = await provisioner.reconcile(owned, webhook_url, SECRET)
-        assert result.created == ["media type", "user group", "user", "action"]
+        assert result.created == [
+            "media type",
+            "user role",
+            "user group",
+            "user",
+            "action",
+        ]
         # Real Zabbix returns what was created: a second run changes nothing.
         again = await provisioner.reconcile(owned, webhook_url, SECRET)
         assert (again.created, again.updated) == ([], [])
@@ -166,7 +172,7 @@ async def test_alerts_end_to_end(client: ZabbixClient) -> None:
         if host_id:
             await client.call("host.delete", [host_id])
         await runner.cleanup()
-    assert removed == ["action", "user", "user group", "media type"]
+    assert removed == ["action", "user", "user group", "user role", "media type"]
 
 
 async def _async_true(value: bool) -> bool:
