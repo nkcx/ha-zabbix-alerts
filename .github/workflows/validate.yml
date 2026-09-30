@@ -13,7 +13,7 @@ permissions: {}
 
 env:
   # The ha-zabbix version this is developed and tested against.
-  HA_ZABBIX_REF: alerts
+  HA_ZABBIX_REF: main
 
 jobs:
   validate-hacs:
