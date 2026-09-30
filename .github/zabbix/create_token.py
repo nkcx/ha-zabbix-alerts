@@ -26,7 +26,7 @@ for _ in range(90):
     try:
         session = call("user.login", {"username": "Admin", "password": "zabbix"})
         break
-    except (urllib.error.URLError, RuntimeError, ConnectionError, OSError):
+    except urllib.error.URLError, RuntimeError, ConnectionError, OSError:
         time.sleep(5)
 else:
     sys.exit("Zabbix did not come up")

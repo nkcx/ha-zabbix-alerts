@@ -36,10 +36,9 @@ def main() -> None:
         "      type: WEBHOOK",
         "      parameters:",
     ]
-    for order, parameter in enumerate(media_type_parameters("<secret>")):
+    for parameter in media_type_parameters("<secret>"):
         lines += [
-            f"        - sortorder: '{order}'",
-            f"          name: {parameter['name']}",
+            f"        - name: {parameter['name']}",
             f"          value: {_quote(parameter['value'])}",
         ]
     lines += ["      script: |"]

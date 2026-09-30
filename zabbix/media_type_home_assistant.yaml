@@ -8,29 +8,21 @@ zabbix_export:
     - name: 'Home Assistant'
       type: WEBHOOK
       parameters:
-        - sortorder: '0'
-          name: URL
+        - name: URL
           value: '{ALERT.SENDTO}'
-        - sortorder: '1'
-          name: Secret
+        - name: Secret
           value: '<secret>'
-        - sortorder: '2'
-          name: HTTPProxy
+        - name: HTTPProxy
           value: ''
-        - sortorder: '3'
-          name: event_id
+        - name: event_id
           value: '{EVENT.ID}'
-        - sortorder: '4'
-          name: event_value
+        - name: event_value
           value: '{EVENT.VALUE}'
-        - sortorder: '5'
-          name: event_update_status
+        - name: event_update_status
           value: '{EVENT.UPDATE.STATUS}'
-        - sortorder: '6'
-          name: trigger_id
+        - name: trigger_id
           value: '{TRIGGER.ID}'
-        - sortorder: '7'
-          name: event_nseverity
+        - name: event_nseverity
           value: '{EVENT.NSEVERITY}'
       script: |
         // ha-zabbix-alerts media type, script version 1.

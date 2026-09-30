@@ -204,8 +204,7 @@ class Provisioner:
             "mediatype.get",
             "mediatypeids",
             owned.media_type_id,
-            output=["name", "status", "script", "timeout", "description"],
-            selectParameters=["name", "value"],
+            output=["name", "status", "script", "timeout", "description", "parameters"],
             selectMessageTemplates=["eventsource", "recovery", "subject", "message"],
         )
         if current is None:

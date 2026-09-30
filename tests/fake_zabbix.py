@@ -17,6 +17,21 @@ OBJECTS = {
     "user": ("users", "userid", "userids"),
     "action": ("actions", "actionid", "actionids"),
 }
+COMMON_GET_PARAMS = {"output", "filter"}
+# Real Zabbix rejects unknown parameters; list the ones each get method accepts.
+ALLOWED_GET_PARAMS = {
+    "mediatype": COMMON_GET_PARAMS | {"mediatypeids", "selectMessageTemplates"},
+    "usergroup": COMMON_GET_PARAMS | {"usrgrpids", "selectHostGroupRights"},
+    "user": COMMON_GET_PARAMS | {"userids", "selectUsrgrps", "selectMedias"},
+    "action": COMMON_GET_PARAMS
+    | {
+        "actionids",
+        "selectFilter",
+        "selectOperations",
+        "selectRecoveryOperations",
+        "selectUpdateOperations",
+    },
+}
 NAME_FIELD = {
     "mediatype": "name",
     "usergroup": "name",
@@ -109,6 +124,11 @@ class FakeZabbix:
         store_name, id_field, ids_param = OBJECTS[kind]
         store = self.stores[store_name]
         if action == "get":
+            unknown = set(params) - ALLOWED_GET_PARAMS[kind]
+            if unknown:
+                raise ApiFailure(
+                    -32602, "Invalid params.", f'unexpected parameter "{min(unknown)}"'
+                )
             objects = list(store.values())
             if ids_param in params:
                 objects = [o for o in objects if o[id_field] in params[ids_param]]
