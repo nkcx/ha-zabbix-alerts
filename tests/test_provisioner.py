@@ -5,7 +5,9 @@ from collections.abc import AsyncGenerator
 import aiohttp
 import pytest
 
+from custom_components.zabbix import alerts as receiver
 from custom_components.zabbix.api import ZabbixAuthError, ZabbixClient
+from custom_components.zabbix_alerts import provisioner as module
 from custom_components.zabbix_alerts.provisioner import (
     ACTION_NAME,
     MEDIA_TYPE_NAME,
@@ -180,3 +182,11 @@ async def test_auth_errors_pass_through(
     fake_zabbix.token = "revoked"
     with pytest.raises(ZabbixAuthError):
         await provisioner.reconcile(OwnedObjects(), URL, SECRET)
+
+
+def test_script_matches_ha_zabbix_receiver() -> None:
+    """The webhook script sends the header and fields ha-zabbix's receiver reads."""
+    assert module.SECRET_HEADER == receiver.SECRET_HEADER
+    assert f"'{receiver.SECRET_HEADER}: '" in module.MEDIA_TYPE_SCRIPT
+    for field_name in ("event_id", "event_value", "event_update_status"):
+        assert f"{field_name}: params.{field_name}" in module.MEDIA_TYPE_SCRIPT
