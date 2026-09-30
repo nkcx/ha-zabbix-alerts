@@ -1,0 +1,29 @@
+# A stock Zabbix server for contract tests (official images, default config).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+  server:
+    image: zabbix/zabbix-server-pgsql:alpine-${ZABBIX_VERSION}
+    environment:
+      DB_SERVER_HOST: postgres
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      ZBX_CACHEUPDATEFREQUENCY: 5
+    ports: ["10051:10051"]
+    # Lets the server's webhook reach the test receiver on the runner.
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on: [postgres]
+  web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-${ZABBIX_VERSION}
+    environment:
+      ZBX_SERVER_HOST: server
+      DB_SERVER_HOST: postgres
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      PHP_TZ: UTC
+    ports: ["8080:8080"]
+    depends_on: [server]

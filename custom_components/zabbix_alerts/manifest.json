@@ -1,0 +1,13 @@
+{
+  "domain": "zabbix_alerts",
+  "name": "Zabbix alerts",
+  "codeowners": ["@nkcx"],
+  "config_flow": true,
+  "dependencies": ["zabbix"],
+  "documentation": "https://github.com/nkcx/ha-zabbix-alerts",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/nkcx/ha-zabbix-alerts/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

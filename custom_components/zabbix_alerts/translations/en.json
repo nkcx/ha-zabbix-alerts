@@ -1,0 +1,78 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Zabbix alerts",
+        "description": "Sets up Zabbix to notify Home Assistant the moment a problem starts, resolves or is updated, and keeps that setup up to date. Turn on **Configure → Alerts** in the Zabbix integration first.\n\nThis creates a webhook media type, a user, a user group (with read access to all host groups) and a trigger action in Zabbix. Removing this integration deletes them again. It needs an API token of a Zabbix **Super admin**.",
+        "data": {
+          "zabbix_entry_id": "Zabbix server",
+          "api_token": "Super admin API token"
+        },
+        "data_description": {
+          "api_token": "Only this integration uses it; the Zabbix integration keeps its own token."
+        }
+      },
+      "url": {
+        "title": "Home Assistant address",
+        "description": "The address Zabbix ({zabbix}) calls to deliver alerts. It must be reachable from the Zabbix server.",
+        "data": {
+          "alert_url": "Webhook URL"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Zabbix alerts",
+        "description": "The Super admin API token is no longer valid. Enter a new one.",
+        "data": {
+          "api_token": "Super admin API token"
+        }
+      },
+      "reconfigure": {
+        "title": "Home Assistant address",
+        "description": "The address Zabbix calls to deliver alerts.",
+        "data": {
+          "alert_url": "Webhook URL"
+        }
+      }
+    },
+    "error": {
+      "alerts_disabled": "Alerts are turned off in {title}. Open the Zabbix integration → Configure → Alerts and turn them on first.",
+      "invalid_auth": "The API token is invalid, disabled or expired.",
+      "not_super_admin": "The token's user must be a Zabbix Super admin to create media types and actions.",
+      "cannot_connect": "Failed to connect to the Zabbix server."
+    },
+    "abort": {
+      "already_configured": "Alerts are already set up for this Zabbix server.",
+      "no_zabbix": "Set up the Zabbix integration first.",
+      "zabbix_too_old": "The Zabbix integration {version} is too old; update it to 0.3.0 or newer.",
+      "reauth_successful": "Reauthentication was successful.",
+      "reconfigure_successful": "Reconfiguration was successful."
+    }
+  },
+  "exceptions": {
+    "zabbix_entry_missing": {
+      "message": "The Zabbix integration entry this belongs to no longer exists."
+    },
+    "alerts_disabled": {
+      "message": "Alerts are turned off in {title}; turn them on under Configure → Alerts."
+    },
+    "invalid_auth": {
+      "message": "The Zabbix API token is invalid, disabled or expired."
+    },
+    "name_conflict": {
+      "message": "A {kind} named \"{name}\" already exists in Zabbix and wasn't created by this integration."
+    },
+    "provision_failed": {
+      "message": "Setting up Zabbix failed: {error}"
+    }
+  },
+  "issues": {
+    "name_conflict": {
+      "title": "Zabbix already has a {kind} named \"{name}\"",
+      "description": "Zabbix alerts needs to create a {kind} named \"{name}\", but one already exists that this integration didn't create. It won't modify or take over objects it didn't create. Rename or delete the existing {kind} in Zabbix; the setup is retried automatically."
+    },
+    "provision_failed": {
+      "title": "Updating the Zabbix alert setup failed",
+      "description": "Zabbix alerts couldn't bring the Zabbix alert setup up to date: {error}\n\nIt retries every hour."
+    }
+  }
+}

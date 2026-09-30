@@ -1,0 +1,96 @@
+# Self-assessment against the Home Assistant Integration Quality Scale (benchmark).
+rules:
+  action-setup:
+    status: exempt
+    comment: No actions.
+  appropriate-polling:
+    status: done
+    comment: Reconciles hourly; no entities are polled.
+  brands: done
+  common-modules: done
+  config-flow: done
+  config-flow-test-coverage: done
+  dependency-transparency: done
+  docs-actions:
+    status: exempt
+    comment: No actions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup:
+    status: exempt
+    comment: No entities.
+  entity-unique-id:
+    status: exempt
+    comment: No entities.
+  has-entity-name:
+    status: exempt
+    comment: No entities.
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+  action-exceptions:
+    status: exempt
+    comment: No actions.
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable:
+    status: exempt
+    comment: No entities.
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates:
+    status: exempt
+    comment: No entity platforms.
+  reauthentication-flow: done
+  test-coverage: done
+  devices:
+    status: exempt
+    comment: No devices.
+  diagnostics: done
+  discovery:
+    status: exempt
+    comment: Configures an existing ha-zabbix entry.
+  discovery-update-info:
+    status: exempt
+    comment: Not discoverable.
+  docs-data-update: done
+  docs-examples:
+    status: exempt
+    comment: Configuration only.
+  docs-known-limitations: done
+  docs-supported-devices:
+    status: exempt
+    comment: No devices.
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices:
+    status: exempt
+    comment: No devices.
+  entity-category:
+    status: exempt
+    comment: No entities.
+  entity-device-class:
+    status: exempt
+    comment: No entities.
+  entity-disabled-by-default:
+    status: exempt
+    comment: No entities.
+  entity-translations:
+    status: exempt
+    comment: No entities.
+  exception-translations: done
+  icon-translations:
+    status: exempt
+    comment: No entities.
+  reconfiguration-flow: done
+  repair-issues: done
+  stale-devices:
+    status: exempt
+    comment: No devices.
+  async-dependency: done
+  inject-websession: done
+  strict-typing: done

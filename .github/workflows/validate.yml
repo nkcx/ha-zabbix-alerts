@@ -1,0 +1,101 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  # The ha-zabbix version this is developed and tested against.
+  HA_ZABBIX_REF: alerts
+
+jobs:
+  validate-hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+
+  validate-hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: nkcx/ha-zabbix
+          ref: ${{ env.HA_ZABBIX_REF }}
+          path: ha-zabbix
+      - run: cp -r ha-zabbix/custom_components/zabbix custom_components/zabbix
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements_test.txt
+      - run: ruff check custom_components/zabbix_alerts tests
+      - run: ruff format --check custom_components/zabbix_alerts tests
+      - run: mypy
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: nkcx/ha-zabbix
+          ref: ${{ env.HA_ZABBIX_REF }}
+          path: ha-zabbix
+      - run: cp -r ha-zabbix/custom_components/zabbix custom_components/zabbix
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements_test.txt
+      - run: python -m pytest tests -q --cov --cov-report=term-missing --cov-fail-under=95
+
+  contract:
+    name: contract (Zabbix ${{ matrix.zabbix }})
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.zabbix == 'trunk' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        zabbix: ["7.0-latest", "7.4-latest", "trunk"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: nkcx/ha-zabbix
+          ref: ${{ env.HA_ZABBIX_REF }}
+          path: ha-zabbix
+      - run: cp -r ha-zabbix/custom_components/zabbix custom_components/zabbix
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements_test.txt
+      - name: Start stock Zabbix
+        env:
+          ZABBIX_VERSION: ${{ matrix.zabbix }}
+        run: docker compose -f .github/zabbix/compose.yaml up -d
+      - name: Create API token
+        run: echo "ZABBIX_CONTRACT_TOKEN=$(python .github/zabbix/create_token.py)" >> "$GITHUB_ENV"
+      - name: Analyze database
+        run: docker compose -f .github/zabbix/compose.yaml exec -T postgres psql -U zabbix -c "ANALYZE" zabbix
+      - name: Contract tests
+        env:
+          ZABBIX_CONTRACT_URL: http://127.0.0.1:8080/
+          ZABBIX_CONTRACT_HA_HOST: host.docker.internal
+        run: python -m pytest tests/test_contract.py -v
+      - if: failure()
+        run: docker compose -f .github/zabbix/compose.yaml logs --tail 150 server
